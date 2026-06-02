@@ -36,20 +36,19 @@ static void data_rx_cb(MlIo *ml_io, int fd, ml_io_flag_t events, void *arg)
         return;
     // Measure rx time
     int rx_time = mloop_run_time();
-    Node *receiver = (Node *)ml_io->io;
+    Node *rx = (Node *)ml_io->io;
     // Read packet data
     Packet packet;
     while(true) {
         ssize_t len = read(fd, &packet, sizeof(packet));
         if (len == sizeof(packet)) {
-            if (receiver->cb != NULL) {
-                receiver->cb(receiver, &packet, rx_time);
+            if (rx->cb != NULL) {
+                rx->cb(rx, &packet, rx_time);
             }
         } else if (len <= 0) {
             break;
         } else {
-            log_warn("node: %s received %i bytes of garbage!",
-                    receiver->name, len);
+            log_warn("node: %s received %i bytes of garbage!", rx->name, len);
         }
     }
 }
@@ -80,7 +79,7 @@ bool node_connect(Node *self, Node *peer, packet_cb cb)
 
 bool node_send_packet(Node *self, Packet *packet)
 {
-    packet->sender_id = self->id;
+    packet->tx_id = self->id;
     packet->seq_num = self->next_seq_num++;
     packet->tx_time = mloop_run_time();
     size_t size = sizeof(Packet);

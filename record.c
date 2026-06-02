@@ -4,19 +4,20 @@
 static const char *state_to_cstr[] = {
     [PACKET_UNKNOWN] = "UNKNOWN",
     [PACKET_READY] = "READY",
-    [PACKET_SENT] = "SENT",
-    [PACKET_RECEIVED] = "RECEIVED",
+    [PACKET_MISSING] = "MISSING",
+    [PACKET_GOOD] = "GOOD",
+    [PACKET_DELAYED] = "DELAYED",
     [PACKET_LOST] = "LOST",
     [PACKET_ERROR] = "ERROR"
 };
 
 
-void record_init(Record *self, Node *sender)
+void record_init(Record *self, Node *tx)
 {
-    self->state = PACKET_READY;
-    self->sender = sender;
-    self->receiver = NULL;
+    self->tx = tx;
+    self->rx = NULL;
     packet_init(&self->packet);
+    self->packet_state = PACKET_READY;
     self->rx_time = -1;
     self->delay = -1;
     self->reported = false;
@@ -25,26 +26,26 @@ void record_init(Record *self, Node *sender)
 void record_destroy(Record *self)
 {
     packet_destroy(&self->packet);
-    self->state = PACKET_UNKNOWN;
-}
-
-const char *record_state_to_cstr(Record *self)
-{
-    if (self->state < 0 || self->state > PACKET_ERROR) {
-        self->state = PACKET_UNKNOWN;
-    }
-    return state_to_cstr[self->state];
+    self->packet_state = PACKET_UNKNOWN;
 }
 
 bool record_send(Record *self)
 {
-    if (self->state != PACKET_READY) {
+    if (self->packet_state != PACKET_READY) {
         return false;
     }
-    if (!node_send_packet(self->sender, &self->packet)) {
-        self->state = PACKET_ERROR;
+    if (!node_send_packet(self->tx, &self->packet)) {
+        self->packet_state = PACKET_ERROR;
         return false;
     }
-    self->state = PACKET_SENT;
+    self->packet_state = PACKET_MISSING;
     return true;
+}
+
+const char *packet_state_to_cstr(PacketState state)
+{
+    if (state < 0 || state > PACKET_ERROR) {
+        state = PACKET_UNKNOWN;
+    }
+    return state_to_cstr[state];
 }

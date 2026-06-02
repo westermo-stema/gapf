@@ -17,7 +17,7 @@ typedef enum {
 
 typedef struct Node Node;
 
-typedef void (*packet_cb)(Node *receiver, Packet *packet, int rx_time);
+typedef void (*packet_cb)(Node *rx, Packet *packet, int rx_time);
 
 struct Node {
     Socket;

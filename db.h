@@ -3,6 +3,7 @@
 
 #include "node.h"
 #include "record.h"
+#include "report.h"
 
 
 void db_init(int num_records);
@@ -13,7 +14,7 @@ Node *db_get_node_by_id(int id);
 Node *db_get_next_node(void);
 
 Record *db_new_record(Node *node);
-Record *db_get_record(int sender_id, int seq_num);
+Record *db_get_record(int tx_id, int seq_num);
 
 List *db_analyse_records(void);
 

@@ -4,7 +4,7 @@
 #include <masc.h>
 
 /* Default values of the configuration */
-#define CFG_DEF_LOG_LEVEL LOG_INFO
+#define CFG_DEF_LOG_LEVEL LOG_WARNING
 #define CFG_DEF_PORT 5678
 #define CFG_DEF_PACKET_RECORDS 1024
 #define CFG_DEF_PACKET_INTERVAL 10

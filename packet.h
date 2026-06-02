@@ -3,7 +3,7 @@
 
 
 typedef struct {
-    int sender_id;
+    int tx_id;
     int seq_num;
     int tx_time;
 } Packet;

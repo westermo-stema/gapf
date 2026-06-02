@@ -24,7 +24,7 @@ void db_init(int num_records)
     records = malloc(sizeof(Record) * rec_count);
     rec_in = 0, rec_out = 0;
     for(int i = 0; i < rec_count; i++) {
-        records[i].state = PACKET_UNKNOWN;
+        records[i].packet_state = PACKET_UNKNOWN;
     }
 }
 
@@ -92,7 +92,7 @@ Record *db_new_record(Node *node)
     return r;
 }
 
-Record *db_get_record(int sender_id, int seq_num)
+Record *db_get_record(int tx_id, int seq_num)
 {
     Record *record = NULL;
     if (rec_emtpy())
@@ -102,11 +102,11 @@ Record *db_get_record(int sender_id, int seq_num)
     while (idx != rec_out) {
         idx = rec_index_decr(idx);
         Record *r = records + idx;
-        if (r->sender == NULL) {
+        if (r->tx == NULL) {
             continue;
         }
         // Match the record with the sender and sequence number
-        if (r->sender->id == sender_id && r->packet.seq_num == seq_num) {
+        if (r->tx->id == tx_id && r->packet.seq_num == seq_num) {
             record = r;
             break;
         }
@@ -114,30 +114,94 @@ Record *db_get_record(int sender_id, int seq_num)
     return record;
 }
 
-static void report_lost_packet(Record *r)
-{
-    r->state = PACKET_LOST;
-    log_info("%s -> ?: lost packet (seq: %i)!",
-            r->sender->name, r->packet.seq_num);
-    //TODO: Currently, we report the lost packet (no gap analysis).
-    r->reported = true;
+static Report *start_report(ReportType type, Record *rec) {
+    Report *report = new(Report, type, rec->tx, rec->rx);
+    // Add new report to database and ...
+    list_append(&reports, report);
+    // ... add the record to the report.
+    report_add_record(report, rec);
+    return report;
 }
 
-static void report_delayed_packet(Record *r)
+static Report *get_open_report(int tx_id)
+{
+    Report *report = NULL;
+    Iter i = init(Iter, &reports);
+    for (Report *r = next(&i); r != NULL; r = next(&i)) {
+        if (!r->finished && r->tx->id == tx_id) {
+            report = r;
+            break;
+        }
+    }
+    destroy(&i);
+    return report;
+}
+
+static void report_lost_packet(Record *rec)
+{
+    log_info("%s -> (%s): lost packet (seq: %i)!",
+            rec->tx->name, rec->tx->peer->name, rec->packet.seq_num);
+    // Look for open report
+    Report *report = get_open_report(rec->tx->id);
+    if (report != NULL) {
+        if (report->type == REPORT_TYPE_LOST) {
+            // If the type matches, just add the record to the open report.
+            report_add_record(report, rec);
+        } else if (report->type == REPORT_TYPE_DELAY) {
+            // If the current report is from type delay, finish it and ...
+            report_finish(report, rec);
+            // ... start a new report for lost packets.
+            start_report(REPORT_TYPE_LOST, rec);
+        }
+    } else {
+        start_report(REPORT_TYPE_LOST, rec);
+    }
+}
+
+static void report_delayed_packet(Record *rec)
 {
     log_info("%s -> %s: delayed packet (seq: %i, delay: %i ms)!",
-            r->sender->name, r->receiver->name, r->packet.seq_num, r->delay);
-    r->reported = true;
+            rec->tx->name, rec->rx->name, rec->packet.seq_num, rec->delay);
+    // Look for open report
+    Report *report = get_open_report(rec->tx->id);
+    if (report != NULL) {
+        // Add the record to the report, the type does not matter.
+        report_add_record(report, rec);
+    } else {
+        start_report(REPORT_TYPE_DELAY, rec);
+    }
 }
 
-static void report_good_packet(Record *r)
+static void report_good_packet(Record *rec)
 {
-    r->reported = true;
+    Report *rep = get_open_report(rec->tx->id);
+    if (rep != NULL) {
+        report_finish(rep, rec);
+    } else {
+        rec->reported = true;
+    }
 }
 
 static List *gather_finished_reports(void)
 {
-    return NULL;
+    List *finished_reports = NULL;
+    Iter i = init(Iter, &reports);
+    for (Report *r = next(&i); r != NULL; r = next(&i)) {
+        if (r->finished) {
+            if (!list_remove(&reports, r)) {
+                continue;
+            }
+            // If this is the first report ...
+            if (finished_reports == NULL) {
+                // ... create a list for the reports.
+                finished_reports = new(List);
+            }
+            // Append the found report to the list.
+            list_append(finished_reports, r);
+        }
+    }
+    destroy(&i);
+    return finished_reports;
 }
 
 List *db_analyse_records(void)
@@ -160,19 +224,22 @@ List *db_analyse_records(void)
                 rec_out = idx;
             }
         }
-        // If a packet was sent more than its lost threshold ago, ...
-        if (r->state == PACKET_SENT
-                && (time - r->packet.tx_time) > cfg.packet_lost_threshold) {
-            // ... report packet as lost.
-            report_lost_packet(r);
-            continue;
-        }
-        if (r->state == PACKET_RECEIVED && !r->reported) {
-            if (r->delay > cfg.packet_delay_threshold) {
-                report_delayed_packet(r);
+        // If a packet is missing ...
+        if (r->packet_state == PACKET_MISSING) {
+            if ((time - r->packet.tx_time) > cfg.packet_lost_threshold) {
+                // ... more than its lost threshold ago, mark it as lost and ...
+                r->packet_state = PACKET_LOST;
+                // ... report it.
+                report_lost_packet(r);
+                continue;
             } else {
-                report_good_packet(r);
+                // ... but not received yet, do no further analysis.
+                break;
             }
+        } else if (r->packet_state == PACKET_GOOD) {
+            report_good_packet(r);
+        } else if (r->packet_state == PACKET_DELAYED) {
+            report_delayed_packet(r);
         }
     }
     return gather_finished_reports();

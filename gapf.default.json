@@ -1,5 +1,5 @@
 {
-    "log_level": 6,
+    "log_level": 5,
     "packet_records": 1024,
     "packet_interval": 10,
     "packet_delay_threshold": 10,

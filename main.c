@@ -11,6 +11,15 @@ static void stdin_line_cb(MlIoPkg *self, void *data, size_t size, void *arg)
 {
 }
 
+static void print_reports(List *reports)
+{
+    Iter i = init(Iter, reports);
+    for (Report *r = next(&i); r != NULL; r = next(&i)) {
+        print(" * %O\n", r);
+    }
+    destroy(&i);
+}
+
 static void packet_timer_cb(MlTimer *timer, void *arg)
 {
 
@@ -20,43 +29,51 @@ static void packet_timer_cb(MlTimer *timer, void *arg)
     // Send record
     record_send(record);
     // Analyse incoming packets
-    db_analyse_records();
+    List *reports = db_analyse_records();
+    // Print reports
+    if (reports != NULL) {
+        print_reports(reports);
+    }
     ml_timer_add(timer, cfg.packet_interval);
 }
 
-static void packet_rx_cb(Node *receiver, Packet *p, int rx_time)
+static void packet_rx_cb(Node *rx, Packet *p, int rx_time)
 {
     // Calculate delay
     int delay = rx_time - p->tx_time;
     log_debug("received: %i -> %i, seq: %i, delay: %i ms",
-            receiver->id, p->sender_id, p->seq_num, delay);
+            rx->id, p->tx_id, p->seq_num, delay);
     // Lookup correspondig record
-    Record *r = db_get_record(p->sender_id, p->seq_num);
+    Record *r = db_get_record(p->tx_id, p->seq_num);
     if (r == NULL) {
         // Handle unexpected packet
-        Node *sender = db_get_node_by_id(p->sender_id);
-        if (sender != NULL) {
+        Node *tx = db_get_node_by_id(p->tx_id);
+        if (tx != NULL) {
             log_warn("%s -> %s: unknown packet (seq: %i, delay: %i ms)!",
-                    sender->name, receiver->name, p->seq_num, delay);
+                    tx->name, rx->name, p->seq_num, delay);
         } else {
             log_error("? -> %s: packet from unknown sender (id: %i, seq: %i)!",
-                    receiver->name, p->sender_id, p->seq_num);
+                    rx->name, p->tx_id, p->seq_num);
         }
         return;
     }
-    if (r->state == PACKET_SENT) {
+    if (r->packet_state == PACKET_MISSING) {
         // Mark packet as received
-        r->receiver = receiver;
+        r->rx = rx;
         r->rx_time = rx_time;
         r->delay = delay;
-        r->state = PACKET_RECEIVED;
-    } else if (r->state == PACKET_LOST) {
-        log_warn("%s -> %s: too late -> marked lost (seq: %i, delay: %i ms)!",
-                r->sender->name, receiver->name, p->seq_num, delay);
+        if (delay < cfg.packet_delay_threshold) {
+            r->packet_state = PACKET_GOOD;
+        } else {
+            r->packet_state = PACKET_DELAYED;
+        }
+    } else if (r->packet_state == PACKET_LOST) {
+        log_warn("%s -> %s: too late -> already marked as lost (seq: %i, delay: %i ms)!",
+                r->tx->name, rx->name, p->seq_num, delay);
     } else {
         log_error("? -> %s: unexpected packet (id: %i, seq: %i, state: %s)!",
-                receiver->name, p->sender_id, p->seq_num,
-                record_state_to_cstr(r));
+                rx->name, p->tx_id, p->seq_num,
+                packet_state_to_cstr(r->packet_state));
     }
 }
 
