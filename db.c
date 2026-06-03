@@ -114,7 +114,8 @@ Record *db_get_record(int tx_id, int seq_num)
     return record;
 }
 
-static Report *start_report(ReportType type, Record *rec) {
+static Report *start_report(ReportType type, Record *rec)
+{
     Report *report = new(Report, type, rec->tx, rec->rx);
     // Add new report to database and ...
     list_append(&reports, report);
@@ -145,10 +146,10 @@ static void report_lost_packet(Record *rec)
     Report *report = get_open_report(rec->tx->id);
     if (report != NULL) {
         if (report->type == REPORT_TYPE_LOST) {
-            // If the type matches, just add the record to the open report.
+            // If the type matches, just add the record to the open report ...
             report_add_record(report, rec);
-        } else if (report->type == REPORT_TYPE_DELAY) {
-            // If the current report is from type delay, finish it and ...
+        } else {
+            // ... otherwise finish it and ...
             report_finish(report, rec);
             // ... start a new report for lost packets.
             start_report(REPORT_TYPE_LOST, rec);
@@ -165,8 +166,16 @@ static void report_delayed_packet(Record *rec)
     // Look for open report
     Report *report = get_open_report(rec->tx->id);
     if (report != NULL) {
-        // Add the record to the report, the type does not matter.
-        report_add_record(report, rec);
+        // If the report is of type rest, ...
+        if (report->type == REPORT_TYPE_RELIEVE) {
+            // ... finish it and ...
+            report_finish(report, rec);
+            // ... start a new report for delayed packets.
+            start_report(REPORT_TYPE_DELAY, rec);
+        } else {
+            // ... otherwise the type does not matter, just add the record.
+            report_add_record(report, rec);
+        }
     } else {
         start_report(REPORT_TYPE_DELAY, rec);
     }
@@ -174,9 +183,24 @@ static void report_delayed_packet(Record *rec)
 
 static void report_good_packet(Record *rec)
 {
-    Report *rep = get_open_report(rec->tx->id);
-    if (rep != NULL) {
-        report_finish(rep, rec);
+    Report *report = get_open_report(rec->tx->id);
+    if (report != NULL) {
+        // If the open report is of type relieve ...
+        if (report->type == REPORT_TYPE_RELIEVE) {
+            // ... check that the relieve time is still in range ...
+            if (rec->rx_time - report->start < cfg.report_relieve_threshold) {
+                report_add_record(report, rec);
+            } else {
+                // ... otherwise this report is not a relieve report and will
+                // be dismised.
+                list_delete_obj(&reports, report);
+            }
+        } else {
+            // ... otherwise finish it and ...
+            report_finish(report, rec);
+            // ... start a new report for relieve packets.
+            start_report(REPORT_TYPE_RELIEVE, rec);
+        }
     } else {
         rec->reported = true;
     }

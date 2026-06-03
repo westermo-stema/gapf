@@ -27,7 +27,7 @@ static void packet_timer_cb(MlTimer *timer, void *arg)
     Node *node = db_get_next_node();
     Record *record = db_new_record(node);
     // Send record
-    record_send(record);
+    record_send_packet(record);
     // Analyse incoming packets
     List *reports = db_analyse_records();
     // Print reports

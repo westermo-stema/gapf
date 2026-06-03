@@ -7,6 +7,7 @@
 static const char *state_to_cstr[] = {
     [REPORT_TYPE_LOST] = "LOST",
     [REPORT_TYPE_DELAY] = "DELAYED",
+    [REPORT_TYPE_RELIEVE] = "RELIEVE",
     [REPORT_TYPE_UNKNOWN] = "UNKNOWN"
 };
 
@@ -17,10 +18,11 @@ void report_init(Report *self, ReportType type, Node *tx, Node *rx)
     self->type = type;
     self->rx = rx;
     self->tx = tx;
-    self->gap_start = -1;
-    self->gap_end = -1;
-    self->lost_packets = 0;
+    self->start = -1;
+    self->end = -1;
+    self->good_packets = 0;
     self->delayed_packets = 0;
+    self->lost_packets = 0;
     self->finished = false;
 }
 
@@ -38,31 +40,34 @@ const char *report_type_to_cstr(Report *self)
 
 void report_add_record(Report *self, Record *record)
 {
-    // Calculate start time of the gap.
-    if (self->gap_start < 0 || record->packet.tx_time < self->gap_start) {
-        self->gap_start = record->packet.tx_time;
+    // Calculate start time of the report.
+    if (self->start < 0) {
+        self->start = record->packet.tx_time;
     }
-    // Update packet counts and calculate end time of the gap.
+    // Update packet counts and calculate end time of the report.
     if (record->packet_state == PACKET_LOST) {
         self->lost_packets++;
     } else if (record->packet_state == PACKET_DELAYED) {
-        self->delayed_packets++;
-        if (self->gap_end < 0 || record->rx_time < self->gap_end) {
-            self->gap_end = record->rx_time;
+        if (self->end < 0 || record->rx_time < self->end) {
+            self->end = record->rx_time;
         }
+        self->delayed_packets++;
+    } else if (record->packet_state == PACKET_GOOD) {
+        self->end = record->rx_time;
+        self->good_packets++;
     }
     record->reported = true;
 }
 
 bool report_finish(Report *self, Record *record)
 {
-    if (self->gap_start < 0) {
+    if (self->start < 0) {
         log_error("report: cannot finish report that did not start!");
         return false;
     }
-    if (self->gap_end < 0) {
-        if (self->gap_start < record->rx_time) {
-            self->gap_end = record->rx_time;
+    if (self->end < 0) {
+        if (self->start < record->rx_time) {
+            self->end = record->rx_time;
         } else {
             log_error("report: gap ends before it starts!");
             return false;
@@ -97,8 +102,8 @@ size_t report_to_cstr(Report *self, char *cstr, size_t size)
     }
     long l = snprintf(cstr, size, tx_rx_fmt, tx_name, rx_name);
     if (self->finished) {
-        l += snprintf(cstr + l, max(0, size - l), " %s, gap: %i ms",
-                report_type_to_cstr(self), self->gap_end - self->gap_start);
+        l += snprintf(cstr + l, max(0, size - l), " %s, time: %i ms",
+                report_type_to_cstr(self), self->end - self->start);
         if (self->lost_packets > 0) {
             l += snprintf(cstr + l, max(0, size - l),
                     ", lost: %i", self->lost_packets);
@@ -106,6 +111,10 @@ size_t report_to_cstr(Report *self, char *cstr, size_t size)
         if (self->delayed_packets > 0) {
             l += snprintf(cstr + l, max(0, size - l),
                     ", delayed: %i", self->delayed_packets);
+        }
+        if (self->good_packets > 0) {
+            l += snprintf(cstr + l, max(0, size - l),
+                    ", good: %i", self->good_packets);
         }
     } else {
         l += cstr_ncopy(cstr + l, " ongoing ...", max(0, size - l));

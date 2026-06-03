@@ -7,6 +7,7 @@
 typedef enum {
     REPORT_TYPE_LOST,
     REPORT_TYPE_DELAY,
+    REPORT_TYPE_RELIEVE,
     REPORT_TYPE_UNKNOWN
 } ReportType;
 
@@ -15,10 +16,11 @@ typedef struct {
     ReportType type;
     Node *tx;
     Node *rx;
-    int gap_start;
-    int gap_end;
-    int lost_packets;
+    int start;
+    int end;
+    int good_packets;
     int delayed_packets;
+    int lost_packets;
     bool finished;
 } Report;
 

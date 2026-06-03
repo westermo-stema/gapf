@@ -29,7 +29,11 @@ typedef struct {
 void record_init(Record *self, Node *tx);
 void record_destroy(Record *self);
 
-bool record_send(Record *self);
+bool record_send_packet(Record *self);
+
+
+bool record_packet_received(Record *self);
+
 
 const char *packet_state_to_cstr(PacketState state);
 

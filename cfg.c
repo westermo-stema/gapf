@@ -14,6 +14,7 @@ Config cfg = {
     .packet_interval = CFG_DEF_PACKET_INTERVAL,
     .packet_delay_threshold = CFG_DEF_PACKET_DELAY_THRESHOLD,
     .packet_lost_threshold = CFG_DEF_PACKET_LOST_THRESHOLD,
+    .report_relieve_threshold = CFG_DEF_REPORT_RELIEVE_THRESHOLD
 };
 
 static const char *cfg_file_paths[] = {
@@ -223,7 +224,6 @@ static void parse_config_file(Json *js)
         }
         cfg.packet_delay_threshold = p_delay;
     }
-
     // Threshold of the packet delay to mark a packet as lost
     Object *p_lost_obj = json_get_node(js, "packet_lost_threshold");
     if (!is_none(p_lost_obj)) {
@@ -238,6 +238,21 @@ static void parse_config_file(Json *js)
             goto out;
         }
         cfg.packet_lost_threshold = p_lost;
+    }
+    // Relieve time between gaps
+    Object *r_relieve_obj = json_get_node(js, "report_relieve_threshold");
+    if (!is_none(r_relieve_obj)) {
+        if (!isinstance(r_relieve_obj, Int)) {
+            err_msg = str_new("Expecting type Int for 'report_relieve_threshold'!");
+            goto out;
+        }
+        int r_relieve = to_int((Int *)r_relieve_obj);
+        // Check that the minimal packet lost threshold
+        if (r_relieve  <= 0) {
+            err_msg = str_new("Value of 'report_relieve_threshold' must be greater than 0!");
+            goto out;
+        }
+        cfg.report_relieve_threshold = r_relieve;
     }
     return;
 out:

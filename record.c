@@ -29,7 +29,7 @@ void record_destroy(Record *self)
     self->packet_state = PACKET_UNKNOWN;
 }
 
-bool record_send(Record *self)
+bool record_send_packet(Record *self)
 {
     if (self->packet_state != PACKET_READY) {
         return false;
@@ -40,6 +40,13 @@ bool record_send(Record *self)
     }
     self->packet_state = PACKET_MISSING;
     return true;
+}
+
+
+
+bool record_packet_received(Record *self)
+{
+    return self->rx_time >= 0;
 }
 
 const char *packet_state_to_cstr(PacketState state)
