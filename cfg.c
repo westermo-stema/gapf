@@ -14,7 +14,8 @@ Config cfg = {
     .packet_interval = CFG_DEF_PACKET_INTERVAL,
     .packet_delay_threshold = CFG_DEF_PACKET_DELAY_THRESHOLD,
     .packet_lost_threshold = CFG_DEF_PACKET_LOST_THRESHOLD,
-    .report_relieve_threshold = CFG_DEF_REPORT_RELIEVE_THRESHOLD
+    .report_relieve_threshold = CFG_DEF_REPORT_RELIEVE_THRESHOLD,
+    .report_grouping = CFG_DEF_REPORT_GROUPING
 };
 
 static const char *cfg_file_paths[] = {
@@ -253,6 +254,15 @@ static void parse_config_file(Json *js)
             goto out;
         }
         cfg.report_relieve_threshold = r_relieve;
+    }
+    // Report grouping
+    Object *r_grouping_obj = json_get_node(js, "report_grouping");
+    if (!is_none(r_grouping_obj)) {
+        if (!isinstance(r_grouping_obj, Bool)) {
+            err_msg = str_new("Expecting type Bool for 'report_grouping'!");
+            goto out;
+        }
+        cfg.report_grouping  = bool_get((Bool *)r_grouping_obj);
     }
     return;
 out:

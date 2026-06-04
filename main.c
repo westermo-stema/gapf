@@ -5,17 +5,65 @@
 
 
 static MlTimer *packet_timer = NULL;
+// Variables for grouping reports
+static int group_number = 0;
+static List group_reports;
+static int group_start_time = -1;
+static int group_end_time;
+static bool link1_ok = false, link2_ok = false;
 
 
 static void stdin_line_cb(MlIoPkg *self, void *data, size_t size, void *arg)
 {
 }
 
-static void print_reports(List *reports)
+static void print_group(void)
+{
+    print("Group #%i: %i ms, duration: %i ms\n", group_number, group_start_time,
+            group_end_time - group_start_time);
+    Iter i = init(Iter, &group_reports);
+    for (Report *r = next(&i); r != NULL; r = next(&i)) {
+        print(" * %O\n", r);
+    }
+    destroy(&i);
+    // Flush reports in group
+    list_delete_all(&group_reports);
+    group_start_time = -1;
+}
+
+static void add_to_group(Report *r)
+{
+    if (group_start_time < 0) {
+        // Start new group
+        group_number++;
+        list_append(&group_reports, r);
+        group_start_time = r->start;
+        group_end_time = r->end;
+    } else {
+        if (r->type == REPORT_TYPE_LINK_OK) {
+            link1_ok |= r->tx->id == 1;
+            link2_ok |= r->tx->id == 2;
+        } else {
+            list_append(&group_reports, r);
+            group_end_time = r->end;
+        }
+    }
+    if (link1_ok && link2_ok) {
+        link1_ok = link2_ok = false;
+        print_group();
+    }
+}
+
+static void process_reports(List *reports)
 {
     Iter i = init(Iter, reports);
     for (Report *r = next(&i); r != NULL; r = next(&i)) {
-        print(" * %O\n", r);
+        if (cfg.report_grouping) {
+            add_to_group(r);
+        } else {
+            // Print report directly
+            print(" * %O\n", r);
+        }
     }
     destroy(&i);
 }
@@ -30,9 +78,8 @@ static void packet_timer_cb(MlTimer *timer, void *arg)
     record_send_packet(record);
     // Analyse incoming packets
     List *reports = db_analyse_records();
-    // Print reports
     if (reports != NULL) {
-        print_reports(reports);
+        process_reports(reports);
     }
     ml_timer_add(timer, cfg.packet_interval);
 }
@@ -83,9 +130,12 @@ int main(int argc, char *argv[])
     mloop_io_pkg_new(&input, '\n', stdin_line_cb, NULL, NULL);
     // Setup packet timer
     packet_timer = mloop_timer_new(cfg.packet_interval, packet_timer_cb, NULL);
+    // Setup report grouping
+    group_reports = init(List);
     // Start main loop
     mloop_run();
     // Cleanup everthing
+    destroy(&group_reports);
     destroy(&input);
     db_destroy();
     mloop_destroy();

@@ -4,5 +4,6 @@
     "packet_interval": 10,
     "packet_delay_threshold": 10,
     "packet_lost_threshold": 500,
-    "report_relieve_threshold": 200
+    "report_relieve_threshold": 200,
+    "report_grouping": true
 }

@@ -8,6 +8,7 @@ typedef enum {
     REPORT_TYPE_LOST,
     REPORT_TYPE_DELAY,
     REPORT_TYPE_RELIEVE,
+    REPORT_TYPE_LINK_OK,
     REPORT_TYPE_UNKNOWN
 } ReportType;
 

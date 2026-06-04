@@ -191,9 +191,9 @@ static void report_good_packet(Record *rec)
             if (rec->rx_time - report->start < cfg.report_relieve_threshold) {
                 report_add_record(report, rec);
             } else {
-                // ... otherwise this report is not a relieve report and will
-                // be dismised.
-                list_delete_obj(&reports, report);
+                // ... otherwise the relieve report becomes a link ok report.
+                report->type = REPORT_TYPE_LINK_OK;
+                report_finish(report, rec);
             }
         } else {
             // ... otherwise finish it and ...
@@ -201,9 +201,8 @@ static void report_good_packet(Record *rec)
             // ... start a new report for relieve packets.
             start_report(REPORT_TYPE_RELIEVE, rec);
         }
-    } else {
-        rec->reported = true;
     }
+    rec->reported = true;
 }
 
 static List *gather_finished_reports(void)

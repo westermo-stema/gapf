@@ -8,6 +8,7 @@ static const char *state_to_cstr[] = {
     [REPORT_TYPE_LOST] = "LOST",
     [REPORT_TYPE_DELAY] = "DELAYED",
     [REPORT_TYPE_RELIEVE] = "RELIEVE",
+    [REPORT_TYPE_LINK_OK] = "LINK OK",
     [REPORT_TYPE_UNKNOWN] = "UNKNOWN"
 };
 
@@ -65,13 +66,18 @@ bool report_finish(Report *self, Record *record)
         log_error("report: cannot finish report that did not start!");
         return false;
     }
-    if (self->end < 0) {
-        if (self->start < record->rx_time) {
-            self->end = record->rx_time;
-        } else {
-            log_error("report: gap ends before it starts!");
-            return false;
+    if (self->type != REPORT_TYPE_LINK_OK) {
+        if (self->end < 0) {
+            if (self->start < record->rx_time) {
+                self->end = record->rx_time;
+            } else {
+                log_error("report: ends before it starts!");
+                return false;
+            }
         }
+    } else {
+        // The link ok report has no end
+        self->end = -1;
     }
     self->finished = true;
     return true;
@@ -90,31 +96,34 @@ int report_cmp(const Report *self, const Report *other)
 
 size_t report_to_cstr(Report *self, char *cstr, size_t size)
 {
-    const char *tx_name = "?", *rx_name = "?", *tx_rx_fmt = "%s -> %s:";
+    const char *tx_name = "?", *rx_name = "?", *tx_rx_fmt = "%s -> %s: %s";
     if (self->tx != NULL) {
         tx_name = self->tx->name;
         if (self->rx != NULL) {
             rx_name = self->rx->name;
         } else {
             rx_name = self->tx->peer->name;
-            tx_rx_fmt = "%s -> (%s):";
+            tx_rx_fmt = "%s -> (%s): %s";
         }
     }
-    long l = snprintf(cstr, size, tx_rx_fmt, tx_name, rx_name);
+    long l = snprintf(cstr, size, tx_rx_fmt, tx_name, rx_name,
+            report_type_to_cstr(self));
     if (self->finished) {
-        l += snprintf(cstr + l, max(0, size - l), " %s, time: %i ms",
-                report_type_to_cstr(self), self->end - self->start);
-        if (self->lost_packets > 0) {
-            l += snprintf(cstr + l, max(0, size - l),
-                    ", lost: %i", self->lost_packets);
-        }
-        if (self->delayed_packets > 0) {
-            l += snprintf(cstr + l, max(0, size - l),
-                    ", delayed: %i", self->delayed_packets);
-        }
-        if (self->good_packets > 0) {
-            l += snprintf(cstr + l, max(0, size - l),
-                    ", good: %i", self->good_packets);
+        if (self->type != REPORT_TYPE_LINK_OK) {
+            l += snprintf(cstr + l, max(0, size - l), ", duration: %i ms",
+                    self->end - self->start);
+            if (self->lost_packets > 0) {
+                l += snprintf(cstr + l, max(0, size - l),
+                        ", lost: %i", self->lost_packets);
+            }
+            if (self->delayed_packets > 0) {
+                l += snprintf(cstr + l, max(0, size - l),
+                        ", delayed: %i", self->delayed_packets);
+            }
+            if (self->good_packets > 0) {
+                l += snprintf(cstr + l, max(0, size - l),
+                        ", good: %i", self->good_packets);
+            }
         }
     } else {
         l += cstr_ncopy(cstr + l, " ongoing ...", max(0, size - l));
