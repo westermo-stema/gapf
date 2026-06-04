@@ -1,4 +1,5 @@
 #include "record.h"
+#include "cfg.h"
 
 
 static const char *state_to_cstr[] = {
@@ -42,7 +43,29 @@ bool record_send_packet(Record *self)
     return true;
 }
 
-
+bool record_receive_packet(Record *self, Node *rx, Packet *packet, int time)
+{
+    if (self->packet_state == PACKET_MISSING) {
+        // Mark packet as received
+        self->rx = rx;
+        self->rx_time = time;
+        self->delay = time - packet->tx_time;
+        if (self->delay < cfg.packet_delay_threshold) {
+            self->packet_state = PACKET_GOOD;
+        } else {
+            self->packet_state = PACKET_DELAYED;
+        }
+    } else if (self->packet_state == PACKET_LOST) {
+        log_warn("rx: %s -> %s, too late -> already marked as lost (seq: %i, delay: %i ms)!",
+                self->tx->name, rx->name, packet->seq_num, self->delay);
+    } else {
+        log_error("rx: ? -> %s, unexpected packet (id: %i, seq: %i, state: %s)!",
+                rx->name, packet->tx_id, packet->seq_num,
+                packet_state_to_cstr(self->packet_state));
+        return false;
+    }
+    return true;
+}
 
 bool record_packet_received(Record *self)
 {

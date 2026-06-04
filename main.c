@@ -37,44 +37,27 @@ static void packet_timer_cb(MlTimer *timer, void *arg)
     ml_timer_add(timer, cfg.packet_interval);
 }
 
-static void packet_rx_cb(Node *rx, Packet *p, int rx_time)
+static void packet_rx_cb(Node *rx, Packet *packet, int rx_time)
 {
     // Calculate delay
-    int delay = rx_time - p->tx_time;
-    log_debug("received: %i -> %i, seq: %i, delay: %i ms",
-            rx->id, p->tx_id, p->seq_num, delay);
+    int delay = rx_time - packet->tx_time;
+    log_debug("rx: %i -> %i, seq: %i, delay: %i ms",
+            rx->id, packet->tx_id, packet->seq_num, delay);
     // Lookup correspondig record
-    Record *r = db_get_record(p->tx_id, p->seq_num);
-    if (r == NULL) {
+    Record *record = db_get_record(packet->tx_id, packet->seq_num);
+    if (record == NULL) {
         // Handle unexpected packet
-        Node *tx = db_get_node_by_id(p->tx_id);
+        Node *tx = db_get_node_by_id(packet->tx_id);
         if (tx != NULL) {
-            log_warn("%s -> %s: unknown packet (seq: %i, delay: %i ms)!",
-                    tx->name, rx->name, p->seq_num, delay);
+            log_warn("rx: %s -> %s, unknown packet (seq: %i, delay: %i ms)!",
+                    tx->name, rx->name, packet->seq_num, delay);
         } else {
-            log_error("? -> %s: packet from unknown sender (id: %i, seq: %i)!",
-                    rx->name, p->tx_id, p->seq_num);
+            log_error("rx: ? -> %s, packet from unknown sender (id: %i, seq: %i)!",
+                    rx->name, packet->tx_id, packet->seq_num);
         }
         return;
     }
-    if (r->packet_state == PACKET_MISSING) {
-        // Mark packet as received
-        r->rx = rx;
-        r->rx_time = rx_time;
-        r->delay = delay;
-        if (delay < cfg.packet_delay_threshold) {
-            r->packet_state = PACKET_GOOD;
-        } else {
-            r->packet_state = PACKET_DELAYED;
-        }
-    } else if (r->packet_state == PACKET_LOST) {
-        log_warn("%s -> %s: too late -> already marked as lost (seq: %i, delay: %i ms)!",
-                r->tx->name, rx->name, p->seq_num, delay);
-    } else {
-        log_error("? -> %s: unexpected packet (id: %i, seq: %i, state: %s)!",
-                rx->name, p->tx_id, p->seq_num,
-                packet_state_to_cstr(r->packet_state));
-    }
+    record_receive_packet(record, rx, packet, rx_time);
 }
 
 int main(int argc, char *argv[])
@@ -88,7 +71,7 @@ int main(int argc, char *argv[])
     mloop_init();
     // Setup node A and B
     Node *node_a = new(Node, "A", cfg.ip_a, cfg.port);
-    Node *node_b = new(Node, "B", cfg.ip_b, cfg.port, packet_rx_cb);
+    Node *node_b = new(Node, "B", cfg.ip_b, cfg.port);
     node_connect(node_a, node_b, packet_rx_cb);
     node_connect(node_b, node_a, packet_rx_cb);
     // Setup test database

@@ -30,7 +30,7 @@ void record_init(Record *self, Node *tx);
 void record_destroy(Record *self);
 
 bool record_send_packet(Record *self);
-
+bool record_receive_packet(Record *self, Node *rx, Packet *packet, int time);
 
 bool record_packet_received(Record *self);
 
