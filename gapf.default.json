@@ -1,5 +1,13 @@
 {
     "log_level": 5,
+    "nodes": [
+        { "name": "AP", "ip": "192.168.3.2", "port": 5678 },
+        { "name": "STA", "ip": "192.168.2.2", "port": 5678 }
+    ],
+    "links": [
+        { "name": "uplink", "tx": "STA", "rx": "AP" },
+        { "name": "downlink", "tx": "AP", "rx": "STA" }
+    ],
     "packet_records": 1024,
     "packet_interval": 10,
     "packet_delay_threshold": 10,

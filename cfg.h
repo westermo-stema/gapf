@@ -13,16 +13,31 @@
 #define CFG_DEF_REPORT_RELIEVE_THRESHOLD 200
 #define CFG_DEF_REPORT_GROUPING true
 /* Ranges of configuration values */
+#define CFG_NUM_NODES 2
+#define CFG_LINKS_MIN 1
+#define CFG_LINKS_MAX 2
 #define CFG_PACKET_RECORDS_MIN 16
 #define CFG_PACKET_LOST_THRESHOLD_MIN 100
 
 
 typedef struct {
+    const char *name;
+    const char *ip;
+    int port;
+} CfgNode;
+
+typedef struct {
+    const char *name;
+    const char *tx_name;
+    const char *rx_name;
+} CfgLink;
+
+typedef struct {
     char *file_path;
     int log_level;
-    const char *ip_a;
-    const char *ip_b;
-    int port;
+    CfgNode nodes[CFG_NUM_NODES];
+    int num_links;
+    CfgLink links[CFG_LINKS_MAX];
     int packet_records;
     int packet_interval;
     int packet_delay_threshold;

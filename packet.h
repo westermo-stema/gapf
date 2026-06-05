@@ -1,9 +1,11 @@
 #ifndef _PACKET_H_
 #define _PACKET_H_
 
+#include <stdint.h>
+
 
 typedef struct {
-    int tx_id;
+    uint16_t link_id;
     int seq_num;
     int tx_time;
 } Packet;

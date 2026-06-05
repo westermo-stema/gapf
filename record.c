@@ -13,10 +13,9 @@ static const char *state_to_cstr[] = {
 };
 
 
-void record_init(Record *self, Node *tx)
+void record_init(Record *self, Link *link)
 {
-    self->tx = tx;
-    self->rx = NULL;
+    self->link = link;
     packet_init(&self->packet);
     self->packet_state = PACKET_READY;
     self->rx_time = -1;
@@ -35,7 +34,7 @@ bool record_send_packet(Record *self)
     if (self->packet_state != PACKET_READY) {
         return false;
     }
-    if (!node_send_packet(self->tx, &self->packet)) {
+    if (!link_send_packet(self->link, &self->packet)) {
         self->packet_state = PACKET_ERROR;
         return false;
     }
@@ -47,7 +46,6 @@ bool record_receive_packet(Record *self, Node *rx, Packet *packet, int time)
 {
     if (self->packet_state == PACKET_MISSING) {
         // Mark packet as received
-        self->rx = rx;
         self->rx_time = time;
         self->delay = time - packet->tx_time;
         if (self->delay < cfg.packet_delay_threshold) {
@@ -57,10 +55,10 @@ bool record_receive_packet(Record *self, Node *rx, Packet *packet, int time)
         }
     } else if (self->packet_state == PACKET_LOST) {
         log_warn("rx: %s -> %s, too late -> already marked as lost (seq: %i, delay: %i ms)!",
-                self->tx->name, rx->name, packet->seq_num, self->delay);
+                self->link->tx->name, rx->name, packet->seq_num, self->delay);
     } else {
-        log_error("rx: ? -> %s, unexpected packet (id: %i, seq: %i, state: %s)!",
-                rx->name, packet->tx_id, packet->seq_num,
+        log_error("rx: %s -> %s, unexpected packet (seq: %i, state: %s)!",
+                self->link->tx->name, rx->name, packet->seq_num,
                 packet_state_to_cstr(self->packet_state));
         return false;
     }

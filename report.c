@@ -13,12 +13,11 @@ static const char *state_to_cstr[] = {
 };
 
 
-void report_init(Report *self, ReportType type, Node *tx, Node *rx)
+void report_init(Report *self, ReportType type, Link *link)
 {
     object_init(self, ReportCls);
     self->type = type;
-    self->rx = rx;
-    self->tx = tx;
+    self->link = link;
     self->start = -1;
     self->end = -1;
     self->good_packets = 0;
@@ -85,9 +84,9 @@ bool report_finish(Report *self, Record *record)
 
 int report_cmp(const Report *self, const Report *other)
 {
-    if (self->tx->id > other->tx->id) {
+    if (self->link->id > other->link->id) {
         return 1;
-    } else if (self->tx->id < other->tx->id) {
+    } else if (self->link->id < other->link->id) {
         return -1;
     } else {
         return 0;
@@ -96,21 +95,10 @@ int report_cmp(const Report *self, const Report *other)
 
 size_t report_to_cstr(Report *self, char *cstr, size_t size)
 {
-    const char *tx_name = "?", *rx_name = "?", *tx_rx_fmt = "%s -> %s: %s";
-    if (self->tx != NULL) {
-        tx_name = self->tx->name;
-        if (self->rx != NULL) {
-            rx_name = self->rx->name;
-        } else {
-            rx_name = self->tx->peer->name;
-            tx_rx_fmt = "%s -> (%s): %s";
-        }
-    }
-    long l = snprintf(cstr, size, tx_rx_fmt, tx_name, rx_name,
-            report_type_to_cstr(self));
+    long l = cstr_ncopy(cstr, report_type_to_cstr(self), size);
     if (self->finished) {
         if (self->type != REPORT_TYPE_LINK_OK) {
-            l += snprintf(cstr + l, max(0, size - l), ", duration: %i ms",
+            l += snprintf(cstr + l, max(0, size - l), ": %i ms",
                     self->end - self->start);
             if (self->lost_packets > 0) {
                 l += snprintf(cstr + l, max(0, size - l),
@@ -126,7 +114,7 @@ size_t report_to_cstr(Report *self, char *cstr, size_t size)
             }
         }
     } else {
-        l += cstr_ncopy(cstr + l, " ongoing ...", max(0, size - l));
+        l += cstr_ncopy(cstr + l, ": ongoing ...", max(0, size - l));
     }
     return l;
 }
@@ -134,9 +122,8 @@ size_t report_to_cstr(Report *self, char *cstr, size_t size)
 static void _vinit(Report *self, va_list va)
 {
     ReportType type = va_arg(va, ReportType);
-    Node *tx = va_arg(va, Node *);
-    Node *rx = va_arg(va, Node *);
-    report_init(self, type, tx, rx);
+    Link *link = va_arg(va, Link *);
+    report_init(self, type, link);
 }
 
 static void _init_class(class *cls)

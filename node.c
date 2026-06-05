@@ -1,24 +1,23 @@
 #include <string.h>
-#include <stdio.h>
 #include <masc.h>
 
 #include "node.h"
 #include "packet.h"
 
 
-static int next_node_id = 1;
+static uint16_t next_node_id = 1;
 
 
 void node_init(Node *self, const char *name, const char *ip, int port)
 {
     socket_init(self, AF_INET, SOCK_DGRAM, 0);
+    self->cls = NodeCls;
     self->id = next_node_id++;
     self->name = strdup(name);
     self->ip = strdup(ip);
     self->port = port;
     self->peer = NULL;
     self->state = NODE_DISCONNECTED;
-    self->next_seq_num = 1;
     self->cb = NULL;
 }
 
@@ -53,21 +52,10 @@ static void data_rx_cb(MlIo *ml_io, int fd, ml_io_flag_t events, void *arg)
     }
 }
 
-bool node_connect(Node *self, Node *peer, packet_cb cb)
+bool node_connect(Node *self, Node *peer)
 {
     if (peer == NULL)
         return false;
-    // Register data callback
-    if (mloop_io_new(self, ML_IO_READ, data_rx_cb, NULL) == NULL) {
-        self->state = NODE_ERROR;
-        return false;
-    }
-    self->cb = cb;
-    // Bind socket to local address
-    if (!socket_bind(self, self->ip, self->port)) {
-        self->state = NODE_BIND_ERROR;
-        return false;
-    }
     // Connect to peer node
     if (!socket_connect(self, peer->ip, peer->port)) {
         self->state = NODE_CONNECT_ERROR;
@@ -77,13 +65,20 @@ bool node_connect(Node *self, Node *peer, packet_cb cb)
     return true;
 }
 
-bool node_send_packet(Node *self, Packet *packet)
+bool node_receive_packets(Node *self, packet_cb cb)
 {
-    packet->tx_id = self->id;
-    packet->seq_num = self->next_seq_num++;
-    packet->tx_time = mloop_run_time();
-    size_t size = sizeof(Packet);
-    return write(self, packet, size) == size;
+    // Register data callback
+    if (mloop_io_new(self, ML_IO_READ, data_rx_cb, NULL) == NULL) {
+        self->state = NODE_ERROR;
+        return false;
+    }
+    // Bind socket to local address
+    if (!socket_bind(self, self->ip, self->port)) {
+        self->state = NODE_BIND_ERROR;
+        return false;
+    }
+    self->cb = cb;
+    return true;
 }
 
 int node_cmp(const Node *self, const Node *other)
@@ -93,8 +88,7 @@ int node_cmp(const Node *self, const Node *other)
 
 size_t node_to_cstr(Node *self, char *cstr, size_t size)
 {
-    return snprintf(cstr, size, "%s (#%i, %s:%i)",
-            self->name, self->id, self->ip, self->port);
+    return snprintf(cstr, size, "%s (%s:%i)", self->name, self->ip, self->port);
 }
 
 static void _vinit(Node *self, va_list va)

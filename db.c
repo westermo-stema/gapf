@@ -3,9 +3,11 @@
 #include "db.h"
 #include "cfg.h"
 
-
+// Nodes and their links
 static List nodes;
-static int cur_node;
+static List links;
+static int next_link;
+// Record database
 static Record *records;
 static int rec_count;
 static int rec_in, rec_out;
@@ -14,9 +16,10 @@ static List reports;
 
 void db_init(int num_records)
 {
-    // Nodes
+    // Nodes and 
     nodes = init(List);
-    cur_node = 0;
+    links = init(List);
+    next_link = 0;
     // Ongoing gap reports
     reports = init(List);
     // Packet records
@@ -31,18 +34,20 @@ void db_init(int num_records)
 void db_destroy(void)
 {
     destroy(&reports);
+    destroy(&links);
     destroy(&nodes);
 }
 
 void db_add_node(Node *node)
 {
+    log_info("db: add node %O", node);
     list_append(&nodes, node);
 }
 
 Node *db_get_node_by_id(int id)
 {
     Node *node = NULL;
-    Iter itr = init(Iter, nodes);
+    Iter itr = init(Iter, &nodes);
     for (Node *n = next(&itr); n != NULL; n = next(&itr)) {
         if (n->id == id) {
             node = n;
@@ -53,11 +58,45 @@ Node *db_get_node_by_id(int id)
     return node;
 }
 
-Node *db_get_next_node(void)
+Node *db_get_node_by_name(const char *name)
 {
-    Node *node = list_get_at(&nodes, cur_node);
-    cur_node = (cur_node + 1 < list_len(&nodes)) ? cur_node + 1 : 0;
+    Node *node = NULL;
+    Iter itr = init(Iter, &nodes);
+    for (Node *n = next(&itr); n != NULL; n = next(&itr)) {
+        if (cstr_eq(n->name, name)) {
+            node = n;
+            break;
+        }
+    }
+    destroy(&itr);
     return node;
+}
+
+void db_add_link(Link *link)
+{
+    log_info("db: add link %O", link);
+    list_append(&links, link);
+}
+
+Link *db_get_next_link(void)
+{
+    Link *link = list_get_at(&links, next_link);
+    next_link = (next_link + 1 < list_len(&links)) ? next_link + 1 : 0;
+    return link;
+}
+
+Link *db_get_link_by_id(int id)
+{
+    Link *link = NULL;
+    Iter itr = init(Iter, &links);
+    for (Link *l = next(&itr); l != NULL; l = next(&itr)) {
+        if (l->id == id) {
+            link = l;
+            break;
+        }
+    }
+    destroy(&itr);
+    return link;
 }
 
 static int rec_index_incr(int index)
@@ -75,7 +114,7 @@ static bool rec_emtpy(void)
     return rec_in == rec_out;
 }
 
-Record *db_new_record(Node *node)
+Record *db_new_record(Link *link)
 {
     // Calculate next index for incoming record
     int next_in = rec_index_incr(rec_in);
@@ -87,26 +126,26 @@ Record *db_new_record(Node *node)
         rec_out = rec_index_incr(rec_out);
     }
     Record *r = records + rec_in;
-    record_init(r, node);
+    record_init(r, link);
     rec_in = next_in;
     return r;
 }
 
-Record *db_get_record(int tx_id, int seq_num)
+Record *db_get_record(int link_id, int seq_num)
 {
-    Record *record = NULL;
     if (rec_emtpy())
-        return record;
+        return NULL;
     // Start by searching the most recent records (should be faster).
+    Record *record = NULL;
     int idx = rec_in;
     while (idx != rec_out) {
         idx = rec_index_decr(idx);
         Record *r = records + idx;
-        if (r->tx == NULL) {
+        if (r->link == NULL) {
             continue;
         }
-        // Match the record with the sender and sequence number
-        if (r->tx->id == tx_id && r->packet.seq_num == seq_num) {
+        // Match the record with the link and sequence number
+        if (r->link->id == link_id && r->packet.seq_num == seq_num) {
             record = r;
             break;
         }
@@ -116,7 +155,7 @@ Record *db_get_record(int tx_id, int seq_num)
 
 static Report *start_report(ReportType type, Record *rec)
 {
-    Report *report = new(Report, type, rec->tx, rec->rx);
+    Report *report = new(Report, type, rec->link);
     // Add new report to database and ...
     list_append(&reports, report);
     // ... add the record to the report.
@@ -124,12 +163,12 @@ static Report *start_report(ReportType type, Record *rec)
     return report;
 }
 
-static Report *get_open_report(int tx_id)
+static Report *get_open_report(Link *link)
 {
     Report *report = NULL;
     Iter i = init(Iter, &reports);
     for (Report *r = next(&i); r != NULL; r = next(&i)) {
-        if (!r->finished && r->tx->id == tx_id) {
+        if (!r->finished && r->link->id == link->id) {
             report = r;
             break;
         }
@@ -140,10 +179,10 @@ static Report *get_open_report(int tx_id)
 
 static void report_lost_packet(Record *rec)
 {
-    log_info("%s -> (%s): lost packet (seq: %i)!",
-            rec->tx->name, rec->tx->peer->name, rec->packet.seq_num);
+    log_info("%s -> %s: lost packet (seq: %i)!",
+            rec->link->tx->name, rec->link->rx->name, rec->packet.seq_num);
     // Look for open report
-    Report *report = get_open_report(rec->tx->id);
+    Report *report = get_open_report(rec->link);
     if (report != NULL) {
         if (report->type == REPORT_TYPE_LOST) {
             // If the type matches, just add the record to the open report ...
@@ -162,9 +201,10 @@ static void report_lost_packet(Record *rec)
 static void report_delayed_packet(Record *rec)
 {
     log_info("%s -> %s: delayed packet (seq: %i, delay: %i ms)!",
-            rec->tx->name, rec->rx->name, rec->packet.seq_num, rec->delay);
+            rec->link->tx->name, rec->link->rx->name,
+            rec->packet.seq_num, rec->delay);
     // Look for open report
-    Report *report = get_open_report(rec->tx->id);
+    Report *report = get_open_report(rec->link);
     if (report != NULL) {
         // If the report is of type rest, ...
         if (report->type == REPORT_TYPE_RELIEVE) {
@@ -183,7 +223,7 @@ static void report_delayed_packet(Record *rec)
 
 static void report_good_packet(Record *rec)
 {
-    Report *report = get_open_report(rec->tx->id);
+    Report *report = get_open_report(rec->link);
     if (report != NULL) {
         // If the open report is of type relieve ...
         if (report->type == REPORT_TYPE_RELIEVE) {

@@ -1,7 +1,7 @@
 #ifndef _RECORD_H_
 #define _RECORD_H_
 
-#include "node.h"
+#include "link.h"
 #include "packet.h"
 
 
@@ -16,8 +16,7 @@ typedef enum {
 } PacketState;
 
 typedef struct {
-    Node *tx;
-    Node *rx;
+    Link *link;
     Packet packet;
     PacketState packet_state;
     int rx_time;
@@ -26,7 +25,7 @@ typedef struct {
 } Record;
 
 
-void record_init(Record *self, Node *tx);
+void record_init(Record *self, Link *link);
 void record_destroy(Record *self);
 
 bool record_send_packet(Record *self);

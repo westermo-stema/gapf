@@ -15,8 +15,7 @@ typedef enum {
 typedef struct {
     Object;
     ReportType type;
-    Node *tx;
-    Node *rx;
+    Link *link;
     int start;
     int end;
     int good_packets;
@@ -29,7 +28,7 @@ typedef struct {
 extern const class *ReportCls;
 
 
-void report_init(Report *self, ReportType type, Node *tx, Node *rx);
+void report_init(Report *self, ReportType type, Link *link);
 void report_destroy(Report *self);
 
 const char *report_type_to_cstr(Report *self);
