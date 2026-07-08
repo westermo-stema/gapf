@@ -1,6 +1,8 @@
 #ifndef _REPORT_H_
 #define _REPORT_H_
 
+#include <masc/map.h>
+
 #include "record.h"
 
 
@@ -39,5 +41,6 @@ bool report_finish(Report *self, Record *record);
 int report_cmp(const Report *self, const Report *other);
 
 size_t report_to_cstr(Report *self, char *cstr, size_t size);
+Map *report_to_json(Report *self);
 
 #endif /* _REPORT_H_ */

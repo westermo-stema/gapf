@@ -2,30 +2,13 @@
 
 #include "cfg.h"
 #include "db.h"
+#include "output.h"
 #include "group_report.h"
 
 
 static MlTimer *packet_timer = NULL;
 static GroupReport group_report;
 
-
-static void print_group(void)
-{
-    print("Group #%i: %i ms, duration: %i ms\n", group_report.number,
-            group_report.start_time,
-            group_report.end_time - group_report.start_time);
-    for (int i = 0; i < cfg.num_links; i++) {
-        Iter itr = init(Iter, &group_report.links[i].reports);
-        for (Report *r = next(&itr); r != NULL; r = next(&itr)) {
-            if (iter_get_idx(&itr) == 0) {
-                Link *l = r->link;
-                print(" * %s (%s -> %s)\n", l->name, l->tx->name, l->rx->name);
-            }
-            print("   * %O\n", r);
-        }
-        destroy(&itr);
-    }
-}
 
 static void process_reports(List *reports)
 {
@@ -36,7 +19,7 @@ static void process_reports(List *reports)
             // If all links in the current group are ok ...
             if (group_report_links_ok(&group_report)) {
                 // ... print the group and ...
-                print_group();
+                print_group(&group_report);
                 // ... start a new group report.
                 group_report_reset(&group_report);
             }
@@ -44,8 +27,7 @@ static void process_reports(List *reports)
             // Skip link ok reports
             if (r->type == REPORT_TYPE_LINK_OK)
                 continue;
-            // Print report directly
-            print("%s -> %s, %O\n", r->link->tx->name, r->link->rx->name, r);
+            print_report(r);
         }
     }
     destroy(&i);

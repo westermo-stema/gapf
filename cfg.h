@@ -12,6 +12,7 @@
 #define CFG_DEF_PACKET_LOST_THRESHOLD 500
 #define CFG_DEF_REPORT_RELIEVE_THRESHOLD 200
 #define CFG_DEF_REPORT_GROUPING true
+#define CFG_DEF_OUTPUT_JSON false
 /* Ranges of configuration values */
 #define CFG_NUM_NODES 2
 #define CFG_LINKS_MIN 1
@@ -44,6 +45,7 @@ typedef struct {
     int packet_lost_threshold;
     int report_relieve_threshold;
     bool report_grouping;
+    bool output_json;
 } Config;
 
 

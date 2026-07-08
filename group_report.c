@@ -74,3 +74,28 @@ void group_report_reset(GroupReport *self)
     self->start_time = -1;
     self->number++;
 }
+
+Map *group_report_to_json(GroupReport *self)
+{
+    Map *out = new(Map);
+    map_set(out, "group", int_new(self->number));
+    map_set(out, "start", int_new(self->start_time));
+    map_set(out, "duration", int_new(self->end_time - self->start_time));
+    // Add links
+    List *links = new(List);
+    for (int i = 0; i < self->n_links; i++) {
+        Map *link = new(Map);
+        map_set(link, "id", int_new(self->links[i].link_id));
+        // Add reports
+        List *reports = new(List);
+        Iter itr = init(Iter, &self->links[i].reports);
+        for (Report *r = next(&itr); r != NULL; r = next(&itr)) {
+            list_append(reports, report_to_json(r));
+        }
+        destroy(&itr);
+        map_set(link, "reports", reports);
+        list_append(links, link);
+    }
+    map_set(out, "links", links);
+    return out;
+}

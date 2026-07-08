@@ -17,7 +17,8 @@ Config cfg = {
     .packet_delay_threshold = CFG_DEF_PACKET_DELAY_THRESHOLD,
     .packet_lost_threshold = CFG_DEF_PACKET_LOST_THRESHOLD,
     .report_relieve_threshold = CFG_DEF_REPORT_RELIEVE_THRESHOLD,
-    .report_grouping = CFG_DEF_REPORT_GROUPING
+    .report_grouping = CFG_DEF_REPORT_GROUPING,
+    .output_json = CFG_DEF_OUTPUT_JSON
 };
 
 static const char *cfg_file_paths[] = {
@@ -108,6 +109,9 @@ static Map *parse_cmdline_args(int argc, char *argv[])
     // * Network port of the nodes
     argparse_add_opt(ap, 'p', "port", "PORT", "1", port_check,
             "Network port (0 - 65535)");
+    // * JSON output
+    argparse_add_opt(ap, 'j', "json", NULL, NULL, NULL,
+            "Format output as JSON");
     // * IP addresses of AP and STA
     argparse_add_arg(ap, "ip_ap", "AP", "?", host_check, "Local IP of AP");
     argparse_add_arg(ap, "ip_sta", "STA", "?", host_check, "Local IP of STA");
@@ -150,6 +154,11 @@ static void merge_cmdline_args(Map *args)
     Int *port = map_get(args, "port");
     if (!is_none(port)) {
            cfg.nodes[0].port = cfg.nodes[1].port = int_get(port);
+    }
+    // JSON output
+    Bool *json_output = map_get(args, "json");
+    if (!is_none(json_output) && bool_get(json_output)) {
+        cfg.output_json = true;
     }
 }
 
@@ -397,6 +406,15 @@ static bool parse_config_file(Json *js, Str **err_msg)
             return false;
         }
         cfg.report_grouping  = bool_get((Bool *)r_grouping_obj);
+    }
+    // JSON output
+    Object *output_json_obj = json_get_node(js, "output_json");
+    if (!is_none(output_json_obj)) {
+        if (!isinstance(output_json_obj, Bool)) {
+            *err_msg = str_new("Expecting type Bool for 'output_json'!");
+            return false;
+        }
+        cfg.output_json  = bool_get((Bool *)output_json_obj);
     }
     return true;
 }

@@ -119,6 +119,30 @@ size_t report_to_cstr(Report *self, char *cstr, size_t size)
     return l;
 }
 
+Map *report_to_json(Report *self)
+{
+    Map *out = map_new();
+    map_set(out, "report", str_new_cstr(report_type_to_cstr(self)));
+    map_set(out, "tx", str_new_cstr(self->link->tx->name));
+    map_set(out, "rx", str_new_cstr(self->link->rx->name));
+    map_set(out, "start", int_new(self->start));
+    if (self->finished) {
+        if (self->type != REPORT_TYPE_LINK_OK) {
+            map_set(out, "duration", int_new(self->end - self->start));
+            if (self->lost_packets > 0) {
+                map_set(out, "lost", int_new(self->lost_packets));
+            }
+            if (self->delayed_packets > 0) {
+                map_set(out, "delayed", int_new(self->delayed_packets));
+            }
+            if (self->good_packets > 0) {
+                map_set(out, "good", int_new(self->good_packets));
+            }
+        }
+    }
+    return out;
+}
+
 static void _vinit(Report *self, va_list va)
 {
     ReportType type = va_arg(va, ReportType);

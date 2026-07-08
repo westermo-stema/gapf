@@ -26,4 +26,6 @@ bool group_report_add(GroupReport *self, Report *report);
 bool group_report_links_ok(GroupReport *self);
 void group_report_reset(GroupReport *self);
 
+Map *group_report_to_json(GroupReport *self);
+
 #endif /* _GROUP_REPORT_H_ */
