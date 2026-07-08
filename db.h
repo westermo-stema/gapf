@@ -11,10 +11,12 @@ void db_init(int num_records);
 void db_destroy(void);
 
 void db_add_node(Node *node);
+const List *db_get_nodes(void);
 Node *db_get_node_by_id(int id);
 Node *db_get_node_by_name(const char *name);
 
 void db_add_link(Link *link);
+const List *db_get_links(void);
 Link *db_get_next_link(void);
 Link *db_get_link_by_id(int id);
 

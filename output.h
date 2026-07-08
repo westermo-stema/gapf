@@ -4,7 +4,7 @@
 #include "report.h"
 #include "group_report.h"
 
-
+void print_env(void);
 void print_report(Report *report);
 void print_group(GroupReport *group);
 

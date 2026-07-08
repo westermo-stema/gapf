@@ -146,6 +146,8 @@ int main(int argc, char *argv[])
     mloop_io_pkg_new(&input, '\n', stdin_line_cb, NULL, NULL);
     // Setup packet timer
     packet_timer = mloop_timer_new(cfg.packet_interval, packet_timer_cb, NULL);
+    // Print environment
+    print_env();
     // Start main loop
     mloop_run();
     // Cleanup everthing

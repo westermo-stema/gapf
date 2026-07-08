@@ -41,6 +41,16 @@ size_t link_to_cstr(Link *self, char *cstr, size_t size)
     return format(cstr, size, "%s (%O -> %O)", self->name, self->tx, self->rx);
 }
 
+Map *link_to_json(Link *self)
+{
+    Map *out = new(Map);
+    map_set(out, "link", int_new(self->id));
+    map_set(out, "name", str_new_cstr(self->name));
+    map_set(out, "tx", str_new_cstr(self->tx->name));
+    map_set(out, "rx", str_new_cstr(self->rx->name));
+    return out;
+}
+
 static void _vinit(Link *self, va_list va)
 {
     char *name = va_arg(va, char *);

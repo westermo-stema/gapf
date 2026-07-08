@@ -1,5 +1,6 @@
 #include "output.h"
 #include "cfg.h"
+#include "db.h"
 
 
 static void print_text_report(Report *r)
@@ -37,6 +38,34 @@ static void print_json_group(GroupReport *group)
     Map *out = group_report_to_json(group);
     put(out);
     delete(out);
+}
+
+void print_env(void)
+{
+    // Print all nodes
+    Iter itr = init(Iter, db_get_nodes());
+    for (Node *n = next(&itr); n != NULL; n = next(&itr)) {
+        if (cfg.output_json) {
+            Map *out = node_to_json(n);
+            put(out);
+            delete(out);
+        } else {
+            put(n);
+        }
+    }
+    destroy(&itr);
+    // Print all links
+    itr = init(Iter, db_get_links());
+    for (Link *l = next(&itr); l != NULL; l = next(&itr)) {
+        if (cfg.output_json) {
+            Map *out = link_to_json(l);
+            put(out);
+            delete(out);
+        } else {
+            put(l);
+        }
+    }
+    destroy(&itr);
 }
 
 void print_report(Report *report)

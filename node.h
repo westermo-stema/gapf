@@ -1,7 +1,7 @@
 #ifndef _NODE_H_
 #define _NODE_H_
 
-#include <masc/socket.h>
+#include <masc.h>
 
 #include "packet.h"
 
@@ -43,5 +43,6 @@ bool node_receive_packets(Node *self, packet_cb cb);
 int node_cmp(const Node *self, const Node *other);
 
 size_t node_to_cstr(Node *self, char *cstr, size_t size);
+Map *node_to_json(Node *self);
 
 #endif /* _NODE_H_ */

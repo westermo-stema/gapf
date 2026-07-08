@@ -44,6 +44,11 @@ void db_add_node(Node *node)
     list_append(&nodes, node);
 }
 
+const List *db_get_nodes(void)
+{
+    return &nodes;
+}
+
 Node *db_get_node_by_id(int id)
 {
     Node *node = NULL;
@@ -76,6 +81,11 @@ void db_add_link(Link *link)
 {
     log_info("db: add link %O", link);
     list_append(&links, link);
+}
+
+const List *db_get_links(void)
+{
+    return &links;
 }
 
 Link *db_get_next_link(void)

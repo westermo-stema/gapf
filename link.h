@@ -1,7 +1,7 @@
 #ifndef _LINK_H_
 #define _LINK_H_
 
-#include <masc/object.h>
+#include <masc.h>
 
 #include "node.h"
 
@@ -27,5 +27,6 @@ bool link_send_packet(Link *self, Packet *packet);
 int link_cmp(const Link *self, const Link *other);
 
 size_t link_to_cstr(Link *self, char *cstr, size_t size);
+Map *link_to_json(Link *self);
 
 #endif /* _LINK_H_ */
