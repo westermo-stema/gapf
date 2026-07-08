@@ -47,7 +47,9 @@ bool group_report_add(GroupReport *self, Report *report)
             // ... otherwise append the report to the proper link and ...
             list_append(&self->links[i].reports, report);
             // ... update the end time of the group record.
-            self->end_time = report->end;
+            if (report->end > self->end_time) {
+                self->end_time = report->end;
+            }
             added = true;
         }
         break;
