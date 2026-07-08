@@ -2,79 +2,20 @@
 
 #include "cfg.h"
 #include "db.h"
-
-
-typedef struct {
-    u_int16_t link_id;
-    List reports;
-    bool ok;
-} LinkGroup;
+#include "group_report.h"
 
 
 static MlTimer *packet_timer = NULL;
-// Variables for grouping reports
-static int group_number = 0;
-static int group_start_time = -1;
-static int group_end_time;
-static LinkGroup link_groups[CFG_LINKS_MAX];
+static GroupReport group_report;
 
-
-static void link_group_init(int i, int link_id)
-{
-    link_groups[i].link_id = link_id;
-    link_groups[i].reports = init(List);
-    link_groups[i].ok = false;
-}
-
-static void link_groups_destroy(void)
-{
-    for (int i = 0; i < cfg.num_links; i++) {
-        list_destroy(&link_groups[i].reports);
-    }
-}
-
-static void link_groups_reset(void)
-{
-    for (int i = 0; i < cfg.num_links; i++) {
-        list_delete_all(&link_groups[i].reports);
-        link_groups[i].ok = false;
-    }
-}
-
-static bool link_groups_ok(void)
-{
-    for (int i = 0; i < cfg.num_links; i++) {
-        if (!link_groups[i].ok) {
-            return false;
-        }
-    }
-    return true;
-}
-
-static bool link_group_add_report(Report *report) {
-    bool added = false;
-    for (int i = 0; i < cfg.num_links; i++) {
-        if (link_groups[i].link_id != report->link->id) {
-            continue;
-        }
-        // Do not include link ok report in groups
-        if (report->type != REPORT_TYPE_LINK_OK) {
-            list_append(&link_groups[i].reports, report);
-            added = true;
-        } else {
-            link_groups[i].ok = true;
-        }
-        break;
-    }
-    return added;
-}
 
 static void print_group(void)
 {
-    print("Group #%i: %i ms, duration: %i ms\n", group_number, group_start_time,
-            group_end_time - group_start_time);
+    print("Group #%i: %i ms, duration: %i ms\n", group_report.number,
+            group_report.start_time,
+            group_report.end_time - group_report.start_time);
     for (int i = 0; i < cfg.num_links; i++) {
-        Iter itr = init(Iter, &link_groups[i].reports);
+        Iter itr = init(Iter, &group_report.links[i].reports);
         for (Report *r = next(&itr); r != NULL; r = next(&itr)) {
             if (iter_get_idx(&itr) == 0) {
                 Link *l = r->link;
@@ -86,31 +27,19 @@ static void print_group(void)
     }
 }
 
-static void add_to_group(Report *r)
-{
-    if (group_start_time < 0) {
-        // Start new group
-        group_number++;
-        group_start_time = r->start;
-    }
-    if (link_group_add_report(r)) {
-        group_end_time = r->end;
-    }
-    // Wait until all links report ok
-    if (link_groups_ok()) {
-        print_group();
-        // Flush reports in all link groups
-        link_groups_reset();
-        group_start_time = -1;
-    }
-}
-
 static void process_reports(List *reports)
 {
     Iter i = init(Iter, reports);
     for (Report *r = next(&i); r != NULL; r = next(&i)) {
         if (cfg.report_grouping) {
-            add_to_group(r);
+            group_report_add(&group_report, r);
+            // If all links in the current group are ok ...
+            if (group_report_links_ok(&group_report)) {
+                // ... print the group and ...
+                print_group();
+                // ... start a new group report.
+                group_report_reset(&group_report);
+            }
         } else {
             // Skip link ok reports
             if (r->type == REPORT_TYPE_LINK_OK)
@@ -206,7 +135,7 @@ static void setup_links(void)
         Link *link = new(Link, name, tx, rx);
         if (node_connect(tx, rx)) {
             db_add_link(link);
-            link_group_init(i, link->id);
+            group_report_add_link(&group_report, link->id);
         } else {
             log_error("unable to create %O!", link);
             delete(link);
@@ -225,6 +154,8 @@ int main(int argc, char *argv[])
     mloop_init();
     // Setup test database
     db_init(cfg.packet_records);
+    // Setup group reporting
+    group_report_init(&group_report);
     // Setup nodes and their links
     setup_nodes();
     setup_links();
@@ -236,7 +167,7 @@ int main(int argc, char *argv[])
     // Start main loop
     mloop_run();
     // Cleanup everthing
-    link_groups_destroy();
+    group_report_destroy(&group_report);
     destroy(&input);
     db_destroy();
     mloop_destroy();
