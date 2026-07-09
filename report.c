@@ -119,12 +119,16 @@ size_t report_to_cstr(Report *self, char *cstr, size_t size)
     return l;
 }
 
-Map *report_to_json(Report *self)
+Map *report_to_json(Report *self, bool grouped)
 {
     Map *out = map_new();
-    map_set(out, "report", str_new_cstr(report_type_to_cstr(self)));
-    map_set(out, "tx", str_new_cstr(self->link->tx->name));
-    map_set(out, "rx", str_new_cstr(self->link->rx->name));
+    if (!grouped) {
+        map_set(out, "type", str_new_cstr("report"));
+    }
+    map_set(out, "category", str_new_cstr(report_type_to_cstr(self)));
+    if (!grouped) {
+        map_set(out, "link_id", int_new(self->link->id));
+    }
     map_set(out, "start", int_new(self->start));
     if (self->finished) {
         if (self->type != REPORT_TYPE_LINK_OK) {

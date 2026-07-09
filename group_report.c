@@ -1,9 +1,12 @@
 #include "group_report.h"
 
 
+static int next_group_id = 1;
+
+
 void group_report_init(GroupReport *self)
 {
-    self->number = 1;
+    self->id = next_group_id++;
     self->start_time = -1;
     self->n_links = 0;
 }
@@ -74,13 +77,14 @@ void group_report_reset(GroupReport *self)
         self->links[i].ok = false;
     }
     self->start_time = -1;
-    self->number++;
+    self->id = next_group_id++;;
 }
 
 Map *group_report_to_json(GroupReport *self)
 {
     Map *out = new(Map);
-    map_set(out, "group", int_new(self->number));
+    map_set(out, "type", str_new_cstr("group"));
+    map_set(out, "id", int_new(self->id));
     map_set(out, "start", int_new(self->start_time));
     map_set(out, "duration", int_new(self->end_time - self->start_time));
     // Add links
@@ -92,7 +96,7 @@ Map *group_report_to_json(GroupReport *self)
         List *reports = new(List);
         Iter itr = init(Iter, &self->links[i].reports);
         for (Report *r = next(&itr); r != NULL; r = next(&itr)) {
-            list_append(reports, report_to_json(r));
+            list_append(reports, report_to_json(r, true));
         }
         destroy(&itr);
         map_set(link, "reports", reports);

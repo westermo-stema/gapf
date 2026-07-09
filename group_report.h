@@ -6,7 +6,7 @@
 
 
 typedef struct {
-    int number;
+    int id;
     int start_time;
     int end_time;
     int n_links;

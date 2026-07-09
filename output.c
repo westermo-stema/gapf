@@ -10,7 +10,7 @@ static void print_text_report(Report *r)
 
 static void print_text_group(GroupReport *group)
 {
-    print("Group #%i: %i ms, duration: %i ms\n", group->number,
+    print("Group #%i: %i ms, duration: %i ms\n", group->id,
             group->start_time,
             group->end_time - group->start_time);
     for (int i = 0; i < cfg.num_links; i++) {
@@ -28,7 +28,7 @@ static void print_text_group(GroupReport *group)
 
 static void print_json_report(Report *report)
 {
-    Map *out = report_to_json(report);
+    Map *out = report_to_json(report, false);
     put(out);
     delete(out);
 }

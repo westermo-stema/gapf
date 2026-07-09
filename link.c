@@ -44,7 +44,8 @@ size_t link_to_cstr(Link *self, char *cstr, size_t size)
 Map *link_to_json(Link *self)
 {
     Map *out = new(Map);
-    map_set(out, "link", int_new(self->id));
+    map_set(out, "type", str_new_cstr("link"));
+    map_set(out, "id", int_new(self->id));
     map_set(out, "name", str_new_cstr(self->name));
     map_set(out, "tx", str_new_cstr(self->tx->name));
     map_set(out, "rx", str_new_cstr(self->rx->name));

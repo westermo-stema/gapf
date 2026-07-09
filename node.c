@@ -94,7 +94,8 @@ size_t node_to_cstr(Node *self, char *cstr, size_t size)
 Map *node_to_json(Node *self)
 {
     Map *out = new(Map);
-    map_set(out, "node", int_new(self->id));
+    map_set(out, "type", str_new_cstr("node"));
+    map_set(out, "id", int_new(self->id));
     map_set(out, "name", str_new_cstr(self->name));
     map_set(out, "ip", str_new_cstr(self->ip));
     map_set(out, "port", int_new(self->port));

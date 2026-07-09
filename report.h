@@ -41,6 +41,6 @@ bool report_finish(Report *self, Record *record);
 int report_cmp(const Report *self, const Report *other);
 
 size_t report_to_cstr(Report *self, char *cstr, size_t size);
-Map *report_to_json(Report *self);
+Map *report_to_json(Report *self, bool grouped);
 
 #endif /* _REPORT_H_ */
