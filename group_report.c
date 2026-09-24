@@ -25,7 +25,7 @@ bool group_report_add_link(GroupReport *self, uint16_t id)
     }
     self->links[self->n_links].link_id = id;
     self->links[self->n_links].reports = init(List);
-    self->links[self->n_links].ok = false;
+    self->links[self->n_links].ok = true;
     self->n_links++;
     return true;
 }
@@ -47,8 +47,10 @@ bool group_report_add(GroupReport *self, Report *report)
             // ... set the current link status as ok.
             self->links[i].ok = true;
         } else {
-            // ... otherwise append the report to the proper link and ...
+            // ... otherwise append the report to the proper link, ...
             list_append(&self->links[i].reports, report);
+            // ... set the current link as not ok and ...
+            self->links[i].ok = false;
             // ... update the end time of the group record.
             if (report->end > self->end_time) {
                 self->end_time = report->end;
@@ -62,6 +64,9 @@ bool group_report_add(GroupReport *self, Report *report)
 
 bool group_report_links_ok(GroupReport *self)
 {
+    if (self->start_time < 0) {
+        return false;
+    }
     for (int i = 0; i < self->n_links; i++) {
         if (!self->links[i].ok) {
             return false;
@@ -74,7 +79,7 @@ void group_report_reset(GroupReport *self)
 {
     for (int i = 0; i < self->n_links; i++) {
         list_delete_all(&self->links[i].reports);
-        self->links[i].ok = false;
+        self->links[i].ok = true;
     }
     self->start_time = -1;
     self->id = next_group_id++;;
