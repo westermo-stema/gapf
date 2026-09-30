@@ -13,7 +13,7 @@ typedef struct {
     struct {
         uint16_t link_id;
         List reports;
-        bool ok;
+        LinkState state;
     } links[CFG_LINKS_MAX];
 } GroupReport;
 

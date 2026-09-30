@@ -6,6 +6,12 @@
 #include "node.h"
 
 
+typedef enum {
+    LINK_STATE_DOWN,
+    LINK_STATE_UP,
+    LINK_STATE_UNKNOWN,
+} LinkState;
+
 typedef struct Link {
     Object;
     uint16_t id;
@@ -13,6 +19,7 @@ typedef struct Link {
     Node *tx;
     Node *rx;
     int next_seq_num;
+    LinkState state;
 } Link;
 
 

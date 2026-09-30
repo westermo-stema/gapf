@@ -173,12 +173,12 @@ static Report *start_report(ReportType type, Record *rec)
     return report;
 }
 
-static Report *get_open_report(Link *link)
+static Report *get_open_report(int link_id)
 {
     Report *report = NULL;
     Iter i = init(Iter, &reports);
     for (Report *r = next(&i); r != NULL; r = next(&i)) {
-        if (!r->finished && r->link->id == link->id) {
+        if (!r->finished && r->link->id == link_id) {
             report = r;
             break;
         }
@@ -192,7 +192,7 @@ static void report_lost_packet(Record *rec)
     log_info("%s -> %s: lost packet (seq: %i)!",
             rec->link->tx->name, rec->link->rx->name, rec->packet.seq_num);
     // Look for open report
-    Report *report = get_open_report(rec->link);
+    Report *report = get_open_report(rec->link->id);
     if (report != NULL) {
         if (report->type == REPORT_TYPE_LOST) {
             // If the type matches, just add the record to the open report ...
@@ -206,6 +206,7 @@ static void report_lost_packet(Record *rec)
     } else {
         start_report(REPORT_TYPE_LOST, rec);
     }
+    rec->link->state = LINK_STATE_DOWN;
 }
 
 static void report_delayed_packet(Record *rec)
@@ -214,7 +215,7 @@ static void report_delayed_packet(Record *rec)
             rec->link->tx->name, rec->link->rx->name,
             rec->packet.seq_num, rec->delay);
     // Look for open report
-    Report *report = get_open_report(rec->link);
+    Report *report = get_open_report(rec->link->id);
     if (report != NULL) {
         // If the report is of type rest, ...
         if (report->type == REPORT_TYPE_RELIEVE) {
@@ -229,11 +230,12 @@ static void report_delayed_packet(Record *rec)
     } else {
         start_report(REPORT_TYPE_DELAY, rec);
     }
+    rec->link->state = LINK_STATE_DOWN;
 }
 
 static void report_good_packet(Record *rec)
 {
-    Report *report = get_open_report(rec->link);
+    Report *report = get_open_report(rec->link->id);
     if (report != NULL) {
         // If the open report is of type relieve ...
         if (report->type == REPORT_TYPE_RELIEVE) {
@@ -252,6 +254,7 @@ static void report_good_packet(Record *rec)
             start_report(REPORT_TYPE_RELIEVE, rec);
         }
     }
+    rec->link->state = LINK_STATE_UP;
     rec->reported = true;
 }
 
@@ -316,4 +319,10 @@ List *db_analyse_records(void)
         }
     }
     return gather_finished_reports();
+}
+
+LinkState db_get_link_state(int link_id)
+{
+    Link *link = db_get_link_by_id(link_id);
+    return link->state;
 }

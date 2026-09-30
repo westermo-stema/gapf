@@ -24,5 +24,6 @@ Record *db_new_record(Link *link);
 Record *db_get_record(int link_id, int seq_num);
 
 List *db_analyse_records(void);
+LinkState db_get_link_state(int link_id);
 
 #endif /* _GAPF_DB_H */

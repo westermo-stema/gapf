@@ -14,6 +14,7 @@ void link_init(Link *self, const char *name, Node *tx, Node *rx)
     self->tx = tx;
     self->rx = rx;
     self->next_seq_num = 1;
+    self->state = LINK_STATE_UNKNOWN;
 }
 
 void link_destroy(Link *self)
